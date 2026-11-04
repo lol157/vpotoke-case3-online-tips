@@ -786,7 +786,7 @@ def generate_pdfs():
         <ul>
           <li><b>Полная готовность MVP:</b> реализованы CLI-прототип, веб-сервер OpenAPI 3.0.3, 4-экранный интерфейс и 100% автотестов на базовом стеке Python.</li>
           <li><b>Готовность к рынку ЮВА:</b> архитектура адаптера шлюза позволяет без изменения ядра подключить национальные QR-системы ЮВА (PromptPay, QRIS, VietQR, PayNow).</li>
-          <li><b>Git-ветка:</b> <code>team_1_case_3</code> (все артефакты и тесты верифицированы).</li>
+          <li><b>Git-репозиторий и ветка:</b> <code>https://github.com/lol157/vpotoke-case3-online-tips</code> (ветка <code>team_1_case_3</code>).</li>
         </ul>
         <div style="text-align:center; margin-top:6px;"><img src="{git_uri}" style="max-height:56mm; max-width:100%; border-radius:6px;"></div>
       </div>
