@@ -1,0 +1,539 @@
+# API платформы чаевых — кейс 3
+#
+# Как заполнять:
+#   1. Health и QRPayload — образцы, не трогать.
+#   2. Заполнены Payment, QRResponse, TipCreate, Report, Error и все эндпоинты.
+#   3. Полностью валидная спецификация OpenAPI 3.0.3 (проверяется на https://editor.swagger.io/).
+
+openapi: 3.0.3
+info:
+  title: Tips Platform
+  version: "1.0.0"
+  description: Онлайн-чаевые для сети «Вкус-Сервис» (Кейс 3)
+
+servers:
+  - url: http://localhost:8083
+
+# ---------- ОБРАЗЕЦ ----------
+components:
+  schemas:
+    QRPayload:
+      type: object
+      required: [merchant_id, employee_id, receipt_id, nonce, exp, signature]
+      properties:
+        merchant_id: {type: string, pattern: '^m_[0-9]{3}$', example: 'm_001'}
+        employee_id: {type: string, pattern: '^e_[0-9]{3}$', example: 'e_001'}
+        receipt_id: {type: string, pattern: '^r_[0-9]{4}$', example: 'r_1001'}
+        nonce: {type: string, pattern: '^[a-f0-9]{6}$', example: 'c82561'}
+        exp: {type: string, format: date-time, example: '2025-11-01T23:59:00Z'}
+        signature: {type: string, pattern: '^[a-f0-9]{16}$', example: '68d0f361ac38c12b'}
+
+# ---------- ЗАПОЛНЕННЫЕ СХЕМЫ ----------
+    QRResponse:
+      type: object
+      required:
+        - qr_id
+        - merchant_id
+        - merchant_name
+        - employee_id
+        - employee_name
+        - receipt_id
+        - base_amount
+        - currency
+        - tip_options
+        - exp
+      properties:
+        qr_id:
+          type: string
+          pattern: '^qr_[0-9]{3}$'
+          example: 'qr_001'
+        merchant_id:
+          type: string
+          pattern: '^m_[0-9]{3}$'
+          example: 'm_001'
+        merchant_name:
+          type: string
+          example: 'Вкус-Сервис Тверская'
+        employee_id:
+          type: string
+          pattern: '^e_[0-9]{3}$'
+          example: 'e_001'
+        employee_name:
+          type: string
+          example: 'Иванов И.'
+        receipt_id:
+          type: string
+          pattern: '^r_[0-9]{4}$'
+          example: 'r_1001'
+        base_amount:
+          type: number
+          format: double
+          minimum: 0.01
+          maximum: 1000000.00
+          example: 637.00
+        currency:
+          type: string
+          default: 'RUB'
+          example: 'RUB'
+        tip_options:
+          type: array
+          items:
+            type: integer
+          example: [0, 5, 10, 15, 20]
+        exp:
+          type: string
+          format: date-time
+          example: '2025-11-01T23:59:00Z'
+
+    TipCreate:
+      type: object
+      required: [qr_id, receipt_id, base_amount, tip_pct]
+      properties:
+        qr_id:
+          type: string
+          pattern: '^qr_[0-9]{3}$'
+          example: 'qr_001'
+        receipt_id:
+          type: string
+          pattern: '^r_[0-9]{4}$'
+          example: 'r_1001'
+        base_amount:
+          type: number
+          format: double
+          minimum: 0.01
+          maximum: 1000000.00
+          example: 637.00
+        tip_pct:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 50
+          example: 5
+        idempotency_key:
+          type: string
+          maxLength: 64
+          example: 'idem-qr001-20251101'
+
+    Payment:
+      type: object
+      required:
+        - payment_id
+        - status
+        - amount_total
+        - tip_amount
+      properties:
+        payment_id:
+          type: string
+          pattern: '^p_[a-z0-9_]+$'
+          example: 'p_0001'
+        qr_id:
+          type: string
+          example: 'qr_001'
+        merchant_id:
+          type: string
+          example: 'm_001'
+        employee_id:
+          type: string
+          example: 'e_001'
+        status:
+          type: string
+          enum: [CREATED, PENDING, SUCCESS, DECLINED, CANCELED]
+          example: 'SUCCESS'
+        base_amount:
+          type: number
+          format: double
+          example: 637.00
+        tip_amount:
+          type: number
+          format: double
+          example: 31.85
+        amount_total:
+          type: number
+          format: double
+          maximum: 2000000.00
+          example: 668.85
+        confirm_token:
+          type: string
+          nullable: true
+          example: 'tok_confirm_p0001'
+        error_code:
+          type: string
+          nullable: true
+          example: null
+        timestamp:
+          type: string
+          format: date-time
+          example: '2025-11-01T18:00:00Z'
+
+    Report:
+      type: object
+      required:
+        - merchant_id
+        - period
+        - tips_total
+        - payments_count
+        - avg_tip_pct
+        - success_rate
+      properties:
+        merchant_id:
+          type: string
+          pattern: '^m_[0-9]{3}$'
+          example: 'm_001'
+        period:
+          type: string
+          example: '2025-11'
+        tips_total:
+          type: number
+          format: double
+          example: 414.85
+        payments_count:
+          type: integer
+          example: 6
+        avg_tip_pct:
+          type: number
+          format: double
+          example: 10.0
+        success_rate:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+          example: 0.8333
+
+    EmployeeReport:
+      type: object
+      required:
+        - employee_id
+        - period
+        - tips_total
+        - payments_count
+        - avg_tip_amount
+        - top_day
+      properties:
+        employee_id:
+          type: string
+          example: 'e_001'
+        period:
+          type: string
+          example: '2025-11'
+        tips_total:
+          type: number
+          format: double
+          example: 83.60
+        payments_count:
+          type: integer
+          example: 2
+        avg_tip_amount:
+          type: number
+          format: double
+          example: 41.80
+        top_day:
+          type: string
+          format: date
+          example: '2025-11-03'
+
+    DailyReportItem:
+      type: object
+      required: [date, tips_total, payments_count, avg_tip_pct]
+      properties:
+        date:
+          type: string
+          format: date
+          example: '2025-11-01'
+        tips_total:
+          type: number
+          format: double
+          example: 245.90
+        payments_count:
+          type: integer
+          example: 3
+        avg_tip_pct:
+          type: number
+          format: double
+          example: 10.0
+
+    DailyReport:
+      type: object
+      required: [merchant_id, daily]
+      properties:
+        merchant_id:
+          type: string
+          example: 'm_001'
+        daily:
+          type: array
+          items:
+            $ref: '#/components/schemas/DailyReportItem'
+
+    Error:
+      type: object
+      required: [error_code, message]
+      properties:
+        error_code:
+          type: string
+          enum:
+            - INVALID_QR
+            - QR_EXPIRED
+            - QR_USED
+            - MERCHANT_BLOCKED
+            - RECEIPT_MISMATCH
+            - TIP_OUT_OF_RANGE
+            - AMOUNT_OUT_OF_RANGE
+            - CARD_DECLINED
+            - GATEWAY_TIMEOUT
+            - CANCEL_NOT_ALLOWED
+            - FORBIDDEN
+            - NOT_FOUND
+          example: 'INVALID_QR'
+        message:
+          type: string
+          example: 'Подпись QR-кода не прошла проверку HMAC-SHA256'
+        retryable:
+          type: boolean
+          example: false
+        details:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+paths:
+  # ---------- ОБРАЗЕЦ ----------
+  /health:
+    get:
+      summary: Проверка живости сервиса
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {type: object, properties: {status: {type: string, example: 'ok'}}}
+
+  # ---------- ЗАПОЛНЕННЫЕ ЭНДПОИНТЫ ----------
+  /api/v1/qr/{qr_id}:
+    get:
+      summary: Получить данные QR-кода для диалоговой формы чаевых (Экран 1)
+      parameters:
+        - name: qr_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^qr_[0-9]{3}$'
+      responses:
+        '200':
+          description: QR валиден, данные для формы чаевых возвращены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QRResponse'
+        '403':
+          description: Мерчант заблокирован или не активирован (MERCHANT_BLOCKED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: QR-код не найден (NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: QR-код (nonce) уже был использован (QR_USED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: Срок действия QR-кода истёк (QR_EXPIRED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Неверная HMAC-подпись QR-кода (INVALID_QR)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/tips:
+    post:
+      summary: Создать платёж с чаевыми (переход к Экрану 3 — Подтверждение)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TipCreate'
+      responses:
+        '200':
+          description: Идемпотентный повтор — возвращён ранее созданный платёж (P-2)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '201':
+          description: Платёж успешно создан в статусе CREATED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '403':
+          description: Мерчант заблокирован (MERCHANT_BLOCKED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Одноразовый nonce уже использован (QR_USED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: Срок действия QR истёк (QR_EXPIRED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Ошибка валидации (INVALID_QR, RECEIPT_MISMATCH, TIP_OUT_OF_RANGE, AMOUNT_OUT_OF_RANGE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/payments/{id}/confirm:
+    post:
+      summary: Подтвердить платёж и выполнить списание через эмулятор шлюза
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Платёж успешно проведён (SUCCESS)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '402':
+          description: Отказ платёжного шлюза (DECLINED / CARD_DECLINED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Недопустимый переход статуса (платёж уже CANCELED или DECLINED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Таймаут платёжного шлюза (PENDING / GATEWAY_TIMEOUT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/payments/{id}/cancel:
+    post:
+      summary: Отменить платёж до подтверждения (из статуса CREATED в CANCELED)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Платёж успешно отменён (status = CANCELED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '409':
+          description: Отмена запрещена из текущего статуса PENDING/SUCCESS (CANCEL_NOT_ALLOWED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/reports/tips:
+    get:
+      summary: Сводный отчёт по чаевым (по мерчанту или по официанту)
+      parameters:
+        - name: merchant_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: employee_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Отчёт сформирован
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Report'
+                  - $ref: '#/components/schemas/EmployeeReport'
+        '403':
+          description: Недостаточно прав доступа (RBAC FORBIDDEN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/reports/tips/daily:
+    get:
+      summary: Посуточный отчёт по чаевым мерчанта
+      parameters:
+        - name: merchant_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Посуточный отчёт сформирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyReport'
+        '403':
+          description: Доступ запрещён (FORBIDDEN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
