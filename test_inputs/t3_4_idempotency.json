@@ -1,0 +1,6 @@
+{
+  "qr_id": "qr_002",
+  "base_amount": 774,
+  "tip_pct": 10,
+  "idempotency_key": "p_demo_002"
+}
