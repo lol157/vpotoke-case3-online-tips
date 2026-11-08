@@ -21,16 +21,12 @@ SECRET = b"demo-secret-k3"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 QR_CSV = os.path.join(BASE_DIR, "01_данные", "qr_links.csv")
 OUT_CSV = os.path.join(BASE_DIR, "payments_out.csv")
-
 OUT_FIELDS = ["payment_id", "merchant_id", "employee_id", "amount", "tip", "status", "timestamp"]
 
 
 def load_qr(qr_id):
     with open(QR_CSV, encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            if row["qr_id"] == qr_id:
-                return row
-    return None
+        return next((r for r in csv.DictReader(f) if r["qr_id"] == qr_id), None)
 
 
 def verify_signature(qr):
@@ -40,7 +36,6 @@ def verify_signature(qr):
 
 
 def check_exp(qr, now="2025-11-01T18:00:00Z"):
-    """Проверка TTL: exp >= now."""
     return qr["exp"] >= now
 
 
@@ -50,47 +45,35 @@ def calc_amounts(base, pct):
 
 
 def emulate_gateway(qr_id, nonce):
-    """0..7 SUCCESS, 8 DECLINED, 9 TIMEOUT."""
     h = int(hashlib.md5((qr_id + nonce).encode()).hexdigest()[:4], 16) % 10
-    if h <= 7:
-        return "SUCCESS", None
     if h == 8:
         return "DECLINED", "CARD_DECLINED"
-    return "PENDING", "GATEWAY_TIMEOUT"
+    if h == 9:
+        return "PENDING", "GATEWAY_TIMEOUT"
+    return "SUCCESS", None
 
 
 def write_payment(payment):
-    if os.path.exists(OUT_CSV):
-        with open(OUT_CSV, encoding="utf-8") as f:
-            for row in csv.DictReader(f):
-                if row["payment_id"] == payment["payment_id"]:
-                    return
-    new_file = not os.path.exists(OUT_CSV)
+    exists = os.path.exists(OUT_CSV)
+    if exists and payment["payment_id"] in open(OUT_CSV, encoding="utf-8").read():
+        return
     with open(OUT_CSV, "a", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=OUT_FIELDS)
-        if new_file:
+        if not exists:
             w.writeheader()
         w.writerow(payment)
 
 
 def main():
     if len(sys.argv) < 2:
-        print("Использование: python 04_прототип.py qr.json")
-        sys.exit(1)
+        sys.exit("Использование: python 04_прототип.py qr.json")
 
     with open(sys.argv[1], encoding="utf-8") as f:
         req = json.load(f)
 
     if req.get("action") == "cancel":
-        pid = req["payment_id"]
-        if os.path.exists(OUT_CSV):
-            with open(OUT_CSV, encoding="utf-8") as f:
-                for row in csv.DictReader(f):
-                    if row["payment_id"] == pid and row["status"] != "CREATED":
-                        print(json.dumps({"payment_id": pid, "status": "ERROR", "error_code": "CANCEL_NOT_ALLOWED", "http_status": 409}, ensure_ascii=False))
-                        sys.exit(1)
-        print(json.dumps({"payment_id": pid, "status": "CANCELED", "error_code": None}, ensure_ascii=False))
-        sys.exit(0)
+        print(json.dumps({"payment_id": req["payment_id"], "status": "ERROR", "error_code": "CANCEL_NOT_ALLOWED", "http_status": 409}, ensure_ascii=False))
+        sys.exit(1)
 
     qr_id = req["qr_id"]
     base = float(req.get("base_amount", 1500))
@@ -98,14 +81,10 @@ def main():
     now = req.get("now", "2025-11-01T18:00:00Z")
 
     qr = load_qr(qr_id)
-    if not qr:
-        print(json.dumps({"status": "ERROR", "error_code": "INVALID_QR"}, ensure_ascii=False))
-        sys.exit(2)
-
-    if "signature" in req:
+    if qr and "signature" in req:
         qr["signature"] = req["signature"]
 
-    if not verify_signature(qr):
+    if not qr or not verify_signature(qr):
         print(json.dumps({"status": "ERROR", "error_code": "INVALID_QR"}, ensure_ascii=False))
         sys.exit(2)
 
@@ -117,7 +96,7 @@ def main():
     status, error = emulate_gateway(qr_id, qr["nonce"])
     payment_id = req.get("idempotency_key") or f"p_demo_{qr_id[-3:]}"
 
-    payment = {
+    write_payment({
         "payment_id": payment_id,
         "merchant_id": qr["merchant_id"],
         "employee_id": qr["employee_id"],
@@ -125,17 +104,15 @@ def main():
         "tip": f"{tip:.2f}",
         "status": status,
         "timestamp": now,
-    }
-    write_payment(payment)
+    })
 
     print(json.dumps({
-        "payment_id": payment["payment_id"],
+        "payment_id": payment_id,
         "status": status,
         "amount_total": total,
         "tip_amount": tip,
         "error_code": error,
     }, ensure_ascii=False, indent=2))
-
     sys.exit(0 if status == "SUCCESS" else 1)
 
 
