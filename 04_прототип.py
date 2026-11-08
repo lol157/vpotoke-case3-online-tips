@@ -21,6 +21,7 @@ SECRET = b"demo-secret-k3"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 QR_CSV = os.path.join(BASE_DIR, "01_данные", "qr_links.csv")
 MERCHANTS_CSV = os.path.join(BASE_DIR, "01_данные", "merchants.csv")
+EMPLOYEES_CSV = os.path.join(BASE_DIR, "01_данные", "employees.csv")
 OUT_CSV = os.path.join(BASE_DIR, "payments_out.csv")
 OUT_FIELDS = ["payment_id", "merchant_id", "employee_id", "amount", "tip", "status", "timestamp"]
 
@@ -122,6 +123,12 @@ def main():
         print(json.dumps({"status": "ERROR", "error_code": "MERCHANT_BLOCKED"}, ensure_ascii=False))
         sys.exit(2)
 
+    with open(EMPLOYEES_CSV, encoding="utf-8") as f:
+        emp = next((e for e in csv.DictReader(f) if e["employee_id"] == qr["employee_id"]), None)
+    if not emp or emp["merchant_id"] != qr["merchant_id"]:
+        print(json.dumps({"status": "ERROR", "error_code": "EMPLOYEE_MISMATCH"}, ensure_ascii=False))
+        sys.exit(2)
+
     payment_id = req.get("idempotency_key") or f"p_demo_{qr_id[-3:]}"
     existing = next((r for r in out_rows if r["payment_id"] == payment_id), None)
     if existing:
@@ -134,6 +141,10 @@ def main():
             "error_code": None,
         }, ensure_ascii=False, indent=2))
         sys.exit(0 if existing["status"] in ("SUCCESS", "CREATED") else 1)
+
+    if any(r["status"] == "SUCCESS" and r["merchant_id"] == qr["merchant_id"] and r["employee_id"] == qr["employee_id"] for r in out_rows):
+        print(json.dumps({"status": "ERROR", "error_code": "QR_USED"}, ensure_ascii=False))
+        sys.exit(2)
 
     tip, total = calc_amounts(base, pct)
     status, error = ("CREATED", None) if req.get("confirm") is False else emulate_gateway(qr_id, qr["nonce"])
