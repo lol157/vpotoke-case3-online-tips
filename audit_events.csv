@@ -1,5 +1,0 @@
-event_id,payment_id,qr_id,action,from_status,to_status,amount_total,actor,at
-evt_0001,p_demo_004,qr_004,payment_created,NONE,CREATED,1100.40,client,2025-11-01T18:00:00Z
-evt_0002,p_demo_004,qr_004,payment_canceled,CREATED,CANCELED,1100.40,client,2025-11-01T18:00:00Z
-evt_0003,p_demo_010,qr_010,payment_created,NONE,CREATED,1963.50,client,2025-11-01T18:00:00Z
-evt_0004,p_demo_010,qr_010,payment_timeout,PENDING,PENDING,1963.50,gateway,2025-11-01T18:00:00Z
